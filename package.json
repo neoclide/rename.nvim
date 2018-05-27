@@ -1,0 +1,28 @@
+{
+  "name": "rename.nvim",
+  "version": "0.0.1",
+  "description": "rename for neovim",
+  "main": "lib/index.js",
+  "dependencies": {
+    "log4js": "^2.7.0",
+    "neovim": "^4.0.0-alpha.1",
+    "tslib": "^1.9.1",
+    "typescript": "^2.8.3"
+  },
+  "devDependencies": {
+    "@chemzqm/tsconfig": "0.0.2",
+    "@chemzqm/tslint-config": "^1.0.12",
+    "@types/node": "^10.1.2",
+    "tslint": "^5.10.0",
+    "tslint-language-service": "^0.9.9"
+  },
+  "scripts": {
+    "clean": "rimraf lib",
+    "lint": "tslint -c tslint.json -p .",
+    "build": "tsc -p tsconfig.json",
+    "watch": "tsc -p tsconfig.json --watch true",
+    "test": "mocha"
+  },
+  "author": "Qiming Zhao <chemzqm@gmail.com>",
+  "license": "MIT"
+}
