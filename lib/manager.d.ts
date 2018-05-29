@@ -5,6 +5,8 @@ export default class Manager {
     activted: boolean;
     state: State;
     bufnr: number;
+    private changeId;
+    private changing;
     private chars;
     private lines;
     private buffer;
@@ -12,7 +14,6 @@ export default class Manager {
     private srcId;
     private maxLnum;
     private minLnum;
-    private lastChangeTs;
     constructor(nvim: Neovim);
     onLineChange(line: Line, content: string): Promise<void>;
     private addHighlight(lnum, start, end);

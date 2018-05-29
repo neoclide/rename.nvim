@@ -1,6 +1,7 @@
 {
   "extends": "./node_modules/@chemzqm/tslint-config/tslint.json",
   "rules": {
+    "ban-types": false,
     "no-unbound-method": false,
     "no-unused-expression": false,
     "return-undefined": false,

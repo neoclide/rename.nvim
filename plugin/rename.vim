@@ -10,7 +10,11 @@ function! s:Start()
   endif
   let pos = getcurpos()
   let cword = expand('<cword>')
-  if empty(cword) | return '' | endif
+  if line('$') > 30000
+    echohl WarningMsg | echon '[rename.nvim] File too big, aborted!' | echohl None
+    return
+  endif
+  if empty(cword) | return | endif
   call RenameStart({
         \ 'content': join(getline(1, '$'), "\n"),
         \ 'cword': cword,

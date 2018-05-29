@@ -12,15 +12,25 @@ import {
   echoErr,
   byteIndex,
   byteLength,
-  diffString
+  diffString,
 } from './util/index'
+import debounce = require('debounce')
 
 const logger = require('./util/logger')('manager')
+
+function getChangeId(lines:string[], start:number, end:number):string|null {
+  if (lines.length != end - start) return null
+  if (lines.length == 0) return null
+  if (lines.length == 1) return lines[0]
+  return `${start}-${end}`
+}
 
 export default class Manager {
   public activted:boolean
   public state:State
   public bufnr:number
+  private changeId:string
+  private changing:boolean
   private chars:Chars
   private lines:Line[]
   private buffer:Buffer|null
@@ -28,32 +38,43 @@ export default class Manager {
   private srcId: number
   private maxLnum:number
   private minLnum:number
-  private lastChangeTs:number
 
   constructor(nvim:Neovim) {
     this.activted = false
     this.nvim = nvim
     this.srcId = 9527
+    this.changing = false
+
+    const delay = 100
+    let callback = debounce((line, content) => {
+      this.onLineChange(line, content).catch(e => {
+        logger.error(e.stack)
+      })
+    }, delay, false)
+
     nvim.on('notification', (name, args) => {
       if (!this.activted) return
       if (name === 'nvim_buf_lines_event') {
         let [buf, tick, firstline, lastline, linedata, more] = args
-        let ts = this.lastChangeTs
-        let line = this.lines.find(o => o.lnum == firstline + 1)
         if (!this.buffer.equals(buf)) return
-        // caused by set lines
-        if (ts && Date.now() - ts < 20) return
+        // change from set lines or undo/redo
+        let {changeId} = this
+        if (changeId && changeId == getChangeId(linedata, firstline, lastline)) {
+          // this.changeId = null
+          return
+        }
+        let line = this.lines.find(o => o.lnum == firstline + 1)
         if (!line
           || lastline - firstline != 1
           || linedata.length != 1) {
+          callback.clear()
+          echoWarning(nvim, 'Unexpected line change detected').catch(() => {}) // tslint:disable-line
           this.stop().catch(err => {
-            // echoErr(nvim, 'Unexpected line change detected').catch(() => { })
+            logger.error(err.stack)
           })
           return
         }
-        this.onLineChange(line, linedata[0]).catch(e => {
-          logger.error(e.stack)
-        })
+        callback(line, linedata[0])
       }
     })
   }
@@ -79,7 +100,7 @@ export default class Manager {
     let newLines = await buffer.getLines({
       start: minLnum - 1,
       end: maxLnum,
-      strictIndexing: false })
+      strictIndexing: true })
     let hls = []
     for (let line of this.lines) {
       line.setNewWord(newWord)
@@ -91,12 +112,20 @@ export default class Manager {
       }))
     }
 
-    this.lastChangeTs = Date.now()
-    await buffer.setLines(newLines, {
-      start: minLnum - 1,
-      end: maxLnum,
-      strictIndexing: false
-    })
+    this.changing = true
+    this.changeId = getChangeId(newLines, minLnum - 1, maxLnum)
+    try {
+      await buffer.setLines(newLines, {
+        start: minLnum - 1,
+        end: maxLnum,
+        strictIndexing: true
+      })
+    } catch (e) {
+      // user typing
+      if (/Vim:E523/.test(e.message)) {
+        return
+      }
+    }
     // fix cursor position
     if (pl) {
       col = col + pl * dc
@@ -106,6 +135,7 @@ export default class Manager {
     await Promise.all(hls.map(o => {
       return this.addHighlight(o.lnum, o.start, o.end)
     }))
+    this.changing = false
   }
 
   private async addHighlight(lnum:number, start:number, end:number):Promise<void> {

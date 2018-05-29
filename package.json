@@ -4,6 +4,8 @@
   "description": "rename for neovim",
   "main": "lib/index.js",
   "dependencies": {
+    "@types/debounce": "^1.0.0",
+    "debounce": "^1.1.0",
     "log4js": "^2.7.0",
     "neovim": "^4.0.1",
     "tslib": "^1.9.1",

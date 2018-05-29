@@ -17,6 +17,7 @@ It's fast and intuitive, while not listen to any of `Cursor` & `TextChange` even
 * Press `<esc>` or save/leave buffer or insert none keyword to exit.
 
 **Note:** You're free to move your cursor after active rename.
+
 **Note:** Navigation is possible even after word changed.
 
 ## Install

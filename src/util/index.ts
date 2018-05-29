@@ -49,6 +49,25 @@ export function byteIndex(content:string, index:number):number {
   return byteLength(s)
 }
 
+export function debounce(fn:Function, t:number):Function {
+  let last = null
+  let timeout = null
+  let cb = (...args) => {
+    if (timeout) {
+      clearTimeout(timeout)
+      timeout = null
+    }
+    let ts = Date.now()
+    if (!last || ts - last > t) {
+      last = ts
+      fn.apply(null, args)
+    } else {
+      timeout = setTimeout(cb.apply(null, args), t + 10)
+    }
+  }
+  return cb
+}
+
 export function diffString(f:string[], t:string[]):[string, string] {
   let af = f.slice()
   let at = t.slice()
