@@ -1,5 +1,9 @@
 # Rename.nvim
 
+[![](http://img.shields.io/github/issues/neoclide/rename.nvim.svg)](https://github.com/neoclide/rename.nvim/issues)
+[![](http://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![](https://img.shields.io/badge/doc-%3Ah%20rename.txt-red.svg)](doc/rename.txt)
+
 Rename variable made easy.
 
 **Why?** 
@@ -16,9 +20,7 @@ It's fast and intuitive, while not listen to any of `Cursor` & `TextChange` even
 * Change the word.
 * Press `<esc>` or save/leave buffer or insert none keyword to exit.
 
-**Note:** You're free to move your cursor after active rename.
-
-**Note:** Navigation is possible even after word changed.
+**Note:** You're free to move your cursor after active rename and text change.
 
 ## Install
 
