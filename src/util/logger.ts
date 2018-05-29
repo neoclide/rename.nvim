@@ -4,9 +4,9 @@ import * as log4js from 'log4js'
 
 const MAX_LOG_SIZE = 1024 * 1024
 const MAX_LOG_BACKUPS = 10
-const LOG_FILE_PATH = process.env.NVIM_COC_LOG_FILE || path.join(os.tmpdir(), 'rename-nvim.log')
+const LOG_FILE_PATH = process.env.NVIM_RENAME_LOG_FILE || path.join(os.tmpdir(), 'rename-nvim.log')
 
-const level = process.env.NVIM_COC_LOG_LEVEL || 'info'
+const level = process.env.NVIM_RENAME_LOG_LEVEL || 'info'
 
 log4js.configure({
   appenders: {

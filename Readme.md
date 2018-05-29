@@ -6,7 +6,7 @@ Rename variable made easy.
 
 It's fast and intuitive, while not listen to any of `Cursor` & `TextChange` events at all.
 
-![rename](https://user-images.githubusercontent.com/251450/40627380-45a045e6-62f1-11e8-8317-06d3964f0a57.gif)
+![rename gif](https://user-images.githubusercontent.com/251450/40681334-6e9bd83c-63bb-11e8-91db-ef80a30e66e7.gif)
 
 ## Work flow
 
@@ -60,6 +60,15 @@ in the directory of this plugin and run
 ```
 
 in neovim to make remote plugin works.
+
+## Trouble shooting
+
+When you find the plugin is not working as expected, run command
+`:checkhealth` and make use that output from `rename.nvim` are **OK**.
+
+To get the log file, run shell command:
+
+    node -e 'console.log(path.join(os.tmpdir(), "rename-nvim.log"))'
 
 ## LICENSE
 

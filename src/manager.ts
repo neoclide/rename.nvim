@@ -120,6 +120,7 @@ export default class Manager {
         strictIndexing: true
       })
     } catch (e) {
+      this.changing = false
       // user typing
       if (/Vim:E523/.test(e.message)) {
         return
