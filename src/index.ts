@@ -21,7 +21,6 @@ export default class RenamePlugin {
   public async renameStart(args:any):Promise<void> {
     let opts = args[0] as StartOption
     await this.manager.start(opts)
-    await this.manager.selectAll()
   }
 
   @Function('RenameToggle', {sync: true})

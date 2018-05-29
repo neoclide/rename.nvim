@@ -13,6 +13,7 @@ import {
   byteIndex,
   byteLength,
   diffString,
+  echoMessage
 } from './util/index'
 import debounce = require('debounce')
 
@@ -27,7 +28,6 @@ function getChangeId(lines:string[], start:number, end:number):string|null {
 
 export default class Manager {
   public activted:boolean
-  public state:State
   public bufnr:number
   private changeId:string
   private changing:boolean
@@ -96,7 +96,6 @@ export default class Manager {
     let dc = byteLength(newWord) - byteLength(replacedWord)
     let end = mode == 'i' ? col - currWord.length -1 : col - currWord.length
     let pl = line.activeRanges.filter(r => (r.start + r.len) < end).length
-    this.state = 'edit'
     let newLines = await buffer.getLines({
       start: minLnum - 1,
       end: maxLnum,
@@ -159,23 +158,30 @@ export default class Manager {
     let lines = this.lines = []
     let buffer = this.buffer = await nvim.buffer
     let ignoreRegex = ignorePattern ? new RegExp(ignorePattern) : null
+    let range = null
     for (let i = 0, l = contents.length; i < l; i++) {
       let text = contents[i]
       if (ignoreRegex && ignoreRegex.test(text)) continue
       let ranges = chars.getRanges(text, cword)
       if (ranges.length == 0) continue
       let obj = new Line(cword, text, i + 1, ranges)
+      if (i + 1 == lnum) {
+        range = obj.getRange(col)
+      }
       this.lines.push(obj)
     }
     this.minLnum = lines.length ? lines[0].lnum : 0
     this.maxLnum = lines.length ? lines[lines.length - 1].lnum : 0
     this.bufnr = bufnr
     this.activted = true
-    this.state = 'navigate'
     await this.nvim.command('let g:rename_activted = 1')
     // TODO may need change params
     await buffer.request('nvim_buf_attach', [buffer, false, {}])
     await this.nvim.call('clearmatches', [])
+    await this.highlightAll()
+    if (range) {
+      await this.echoMessage(range)
+    }
   }
 
   public async stop():Promise<void> {
@@ -199,12 +205,11 @@ export default class Manager {
     return true
   }
 
-  public async selectAll():Promise<void> {
+  public async highlightAll():Promise<void> {
     let {srcId, buffer} = this
     for (let line of this.lines) {
       let {ranges, lnum} = line
       for (let r of ranges) {
-        r.active = true
         await this.addHighlight(lnum, r.start, r.start + r.len)
       }
     }
@@ -212,7 +217,7 @@ export default class Manager {
 
   // goto next
   public async nextItem():Promise<void> {
-    let {maxLnum, lines, nvim, state} = this
+    let {maxLnum, lines, nvim} = this
     let [_, lnum, col] = await this.nvim.call('getcurpos')
     let r = null
     for (let i = 0, l = lines.length; i < l; i++) {
@@ -264,7 +269,7 @@ export default class Manager {
 
   // goto first active item
   public async navigateFirst(isRedirect?:boolean):Promise<void> {
-    let {nvim, lines, state} = this
+    let {nvim, lines} = this
     let pos = await this.nvim.call('getcurpos')
     for (let line of lines) {
       let r = line.firstActive
@@ -273,7 +278,7 @@ export default class Manager {
           await this.navigateLast(true)
           break
         } else {
-          await nvim.call('cursor', [line.lnum, r.start + 1])
+          await this.gotoRange(line.lnum, r)
         }
         return
       }
@@ -282,7 +287,7 @@ export default class Manager {
 
   // goto last active item
   public async navigateLast(isRedirect?:boolean):Promise<void> {
-    let {nvim, lines, state} = this
+    let {nvim, lines} = this
     let pos = await this.nvim.call('getcurpos')
     for (let i = lines.length - 1; i >= 0; i--) {
       let line = lines[i]
@@ -291,7 +296,7 @@ export default class Manager {
         if (!isRedirect && line.lnum === pos[1] && r.start + 1 === pos[2]) {
           await this.navigateFirst(true)
         } else {
-          await nvim.call('cursor', [line.lnum, r.start + 1])
+          await this.gotoRange(line.lnum, r)
         }
         return
       }
@@ -299,7 +304,7 @@ export default class Manager {
   }
 
   public async toggleActive(lnum:number, col:number):Promise<void> {
-    let {state, lines, srcId, buffer} = this
+    let {lines, srcId, buffer} = this
     let line = this.lines.find(o => o.lnum == lnum)
     if (!line) return
     let r = line.getRange(col)
@@ -335,6 +340,7 @@ export default class Manager {
   private async gotoRange(lnum:number, range:Range):Promise<void> {
     let {nvim} = this
     await nvim.call('cursor', [lnum, range.start + 1])
+    await this.echoMessage(range)
   }
 
   private getWordAhead(content:string, col:number):string {
@@ -350,5 +356,35 @@ export default class Manager {
       }
     }
     return res
+  }
+
+  private async echoMessage(r:Range):Promise<void> {
+    let {nvim} = this
+    let [i, total] = this.getCountInfo(r)
+    let {word} = this.lines[0]
+    await echoMessage(nvim, `/\\<${word}\\> match ${i} of ${total}`)
+  }
+
+  private getCountInfo(r:Range):[number, number] {
+    let i = 0
+    let total = 0
+    let found = false
+    for (let line of this.lines) {
+      let {activeRanges} = line
+      total += activeRanges.length
+      if (!found) {
+        for (let item of activeRanges) {
+          i = i + 1
+          if (item === r) {
+            found = true
+            break
+          }
+        }
+      }
+    }
+    if (!found) {
+      i = 0
+    }
+    return [i, total]
   }
 }

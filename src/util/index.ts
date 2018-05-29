@@ -38,6 +38,10 @@ export async function echoWarning(nvim: Neovim, line: string):Promise<void> {
   return await echoMsg(nvim, line, 'WarningMsg')
 }
 
+export async function echoMessage(nvim: Neovim, line: string):Promise<void> {
+  return await echoMsg(nvim, line, 'MoreMsg')
+}
+
 // nvim use utf8
 export function byteLength(str:string):number {
   let buf = Buffer.from(str, 'utf8')

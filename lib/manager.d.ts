@@ -1,9 +1,8 @@
 import { Neovim } from 'neovim';
-import { State, StartOption } from './types';
+import { StartOption } from './types';
 import Line from './model/line';
 export default class Manager {
     activted: boolean;
-    state: State;
     bufnr: number;
     private changeId;
     private changing;
@@ -20,7 +19,7 @@ export default class Manager {
     start(opts: StartOption): Promise<void>;
     stop(): Promise<void>;
     checkPosition(lnum: number, col: number): boolean;
-    selectAll(): Promise<void>;
+    highlightAll(): Promise<void>;
     nextItem(): Promise<void>;
     prevItem(): Promise<void>;
     navigateFirst(isRedirect?: boolean): Promise<void>;
@@ -29,4 +28,6 @@ export default class Manager {
     onCharInsert(ch: any): Promise<void>;
     private gotoRange(lnum, range);
     private getWordAhead(content, col);
+    private echoMessage(r);
+    private getCountInfo(r);
 }
