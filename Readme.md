@@ -16,7 +16,8 @@ It's fast and intuitive, while not listen to any of `Cursor` & `TextChange` even
 * Change the word.
 * Press `<esc>` or save/leave buffer or insert none keyword to exit.
 
-Note: navigation is possible even after word changed.
+**Note:** You're free to move your cursor after active rename.
+**Note:** Navigation is possible even after word changed.
 
 ## Install
 
@@ -46,6 +47,12 @@ to your `init.vim` and run:
 in neovim.
 
 When using other plugin manager, you may need to run:
+
+```
+npm install --only=production
+```
+
+in the directory of this plugin and run
 
 ``` vim
 :UpdateRemotePlugins
