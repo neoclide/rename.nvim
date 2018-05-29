@@ -5,7 +5,7 @@
   "main": "lib/index.js",
   "dependencies": {
     "log4js": "^2.7.0",
-    "neovim": "^4.0.0-alpha.1",
+    "neovim": "^4.0.1",
     "tslib": "^1.9.1",
     "typescript": "^2.8.3"
   },
