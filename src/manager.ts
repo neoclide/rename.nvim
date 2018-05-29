@@ -144,7 +144,7 @@ export default class Manager {
     this.state = 'navigate'
     await this.nvim.command('let g:rename_activted = 1')
     // TODO may need change params
-    await buffer.request('nvim_buf_attach', [buffer, false])
+    await buffer.request('nvim_buf_attach', [buffer, false, {}])
     await this.nvim.call('clearmatches', [])
   }
 
@@ -157,7 +157,7 @@ export default class Manager {
     this.lines = []
     this.activted = false
     // TODO may need change params
-    await buffer.request('nvim_buf_detach', [buffer])
+    await buffer.request('nvim_buf_detach', [buffer, {}])
     await this.nvim.command('let g:rename_activted = 0')
   }
 

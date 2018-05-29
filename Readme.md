@@ -4,7 +4,7 @@ Rename variable made easy.
 
 **Why?** 
 
-It's fast and intuitive, while not listen to any of cursor events at all.
+It's fast and intuitive, while not listen to any of `Cursor` & `TextChange` events at all.
 
 ![rename](https://user-images.githubusercontent.com/251450/40627380-45a045e6-62f1-11e8-8317-06d3964f0a57.gif)
 
