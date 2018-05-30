@@ -7,13 +7,10 @@ export interface PositionItem {
 }
 
 export interface StartOption {
-  content: string
-  lnum: number
-  col: number
   cword: string
-  bufnr: number
   iskeyword: string
-  ignorePattern?: string
+  currentOnly?:boolean
+  includePattern?: string
 }
 
 export interface DiffItem {

@@ -14,7 +14,7 @@ It's fast and intuitive, while not listen to any of `Cursor` & `TextChange` even
 
 ## Work flow
 
-* Press `<C-a>` in normal mode active rename
+* Press `<C-a>` or `<C-d>` in normal mode to active.
 * Optional use `n` `N` `o` `O` to navigate.
 * Optional use `<C-d>` to toggle selection.
 * Change the word.

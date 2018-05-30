@@ -4,11 +4,10 @@ endif
 let did_rename_loaded = 1
 let g:rename_activted = 0
 
-function! s:Start()
+function! s:Start(currentOnly)
   if get(g:, 'rename_activted', 0)
     return
   endif
-  let pos = getcurpos()
   let cword = expand('<cword>')
   if line('$') > 30000
     echohl WarningMsg | echon '[rename.nvim] File too big, aborted!' | echohl None
@@ -16,12 +15,9 @@ function! s:Start()
   endif
   if empty(cword) | return | endif
   call RenameStart({
-        \ 'content': join(getline(1, '$'), "\n"),
         \ 'cword': cword,
-        \ 'lnum': pos[1],
-        \ 'col': pos[2],
-        \ 'bufnr': bufnr('%'),
         \ 'iskeyword': &iskeyword,
+        \ 'currentOnly': a:currentOnly,
         \})
   return
 endfunction
@@ -49,8 +45,10 @@ function! s:Init()
   let begin_key = get(g:, 'rename_begin_key', 'o')
   let end_key = get(g:, 'rename_end_key', 'O')
 
-  execute 'nnoremap <silent>'start_key.' :call <SID>Start()<CR>'
-  call s:CreateKeyMap(toggle_key, 'RenameToggle')
+  execute 'nnoremap <silent> '.start_key.' :call <SID>Start(0)<CR>'
+  execute 'nnoremap <silent><expr> '.toggle_key.' g:rename_activted ?'
+        \.' ":call RenameToggle()<CR>" : ":call <SID>Start(1)<CR>"'
+
   call s:CreateKeyMap(next_key, 'RenameNext')
   call s:CreateKeyMap(prev_key, 'RenamePrev')
   call s:CreateKeyMap(begin_key, 'RenameBegin')

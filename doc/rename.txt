@@ -86,7 +86,8 @@ g:rename_start_key                            	*g:rename_start_key*
 
 g:rename_toggle_key                            	*g:rename_toggle_key*
 		    Trigger key for toggle variable under cursor,
-		    default to |<C-a>|
+		    default to |<C-d>|, also used by start rename
+		    with current word actived.
 
 g:rename_next_key                            	*g:rename_next_key*
 		    Goto next actived variable, default to |n|

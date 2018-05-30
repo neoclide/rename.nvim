@@ -97,7 +97,7 @@ export class Chars {
           res.push({
             start: byteIndex(line, i),
             len: blen,
-            active: true
+            active: false
           })
         }
         i = i + len - 1

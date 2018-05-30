@@ -32,12 +32,13 @@ export default class Manager {
   private changeId:string
   private changing:boolean
   private chars:Chars
+  private origLines:string[]
   private lines:Line[]
   private buffer:Buffer|null
   private readonly nvim:Neovim
   private srcId: number
-  private maxLnum:number
-  private minLnum:number
+  private endLnum:number
+  private startLnum:number
 
   constructor(nvim:Neovim) {
     this.activted = false
@@ -80,7 +81,7 @@ export default class Manager {
   }
 
   public async onLineChange(line:Line, content:string):Promise<void> {
-    let {lines, chars, srcId, minLnum, nvim, maxLnum, activted, buffer} = this
+    let {lines, chars, srcId, startLnum, nvim, endLnum, activted, buffer} = this
     if (!activted) return
     let [_, lnum, col] = await nvim.call('getcurpos', [])
     let mode = await nvim.call('mode', [])
@@ -96,27 +97,24 @@ export default class Manager {
     let dc = byteLength(newWord) - byteLength(replacedWord)
     let end = mode == 'i' ? col - currWord.length -1 : col - currWord.length
     let pl = line.activeRanges.filter(r => (r.start + r.len) < end).length
-    let newLines = await buffer.getLines({
-      start: minLnum - 1,
-      end: maxLnum,
-      strictIndexing: true })
+    let newLines = this.origLines.slice()
     let hls = []
     for (let line of this.lines) {
       line.setNewWord(newWord)
       line.resetRanges()
       let {activeRanges, lnum, content} = line
-      newLines[lnum - minLnum] = content
+      newLines[lnum - startLnum] = content
       hls = hls.concat(activeRanges.map(r => {
-        return {lnum, start: r.start, end: r.start + r.len}
+        return {lnum, range:r}
       }))
     }
 
     this.changing = true
-    this.changeId = getChangeId(newLines, minLnum - 1, maxLnum)
+    this.changeId = getChangeId(newLines, startLnum - 1, endLnum)
     try {
       await buffer.setLines(newLines, {
-        start: minLnum - 1,
-        end: maxLnum,
+        start: startLnum - 1,
+        end: endLnum,
         strictIndexing: true
       })
     } catch (e) {
@@ -133,13 +131,16 @@ export default class Manager {
     }
     await buffer.clearHighlight({srcId})
     await Promise.all(hls.map(o => {
-      return this.addHighlight(o.lnum, o.start, o.end)
+      return this.addHighlight(o.lnum, o.range)
     }))
     this.changing = false
   }
 
-  private async addHighlight(lnum:number, start:number, end:number):Promise<void> {
+  private async addHighlight(lnum:number, range:Range):Promise<void> {
+    let {start, len} = range
     let {buffer, srcId} = this
+    range.active = true
+    let end = start + len
     await buffer.addHighlight({
       srcId,
       hlGroup: 'NvimRename',
@@ -152,44 +153,54 @@ export default class Manager {
 
   public async start(opts:StartOption):Promise<void> {
     let {activted, nvim} = this
-    if (activted) return
-    let {content, lnum, bufnr, col, cword, iskeyword, ignorePattern} = opts
-    let chars = this.chars = new Chars(iskeyword)
+    let {cword, iskeyword, currentOnly,includePattern} = opts
+    if (activted || !cword) return
+    let res = await nvim.call('rename#get_content', [cword])
+    if (!res) return
+    let [start, end, content] = res
     let contents = content.split(/\n/g)
+    let [_, lnum, col] = await nvim.call('getcurpos', [])
+    let chars = this.chars = new Chars(iskeyword)
     let lines = this.lines = []
+    let lineRe = includePattern ? new RegExp(includePattern) : null
     let buffer = this.buffer = await nvim.buffer
-    let ignoreRegex = ignorePattern ? new RegExp(ignorePattern) : null
     let range = null
     for (let i = 0, l = contents.length; i < l; i++) {
       let text = contents[i]
-      if (ignoreRegex && ignoreRegex.test(text)) continue
+      if (lineRe && !lineRe.test(text)) continue
       let ranges = chars.getRanges(text, cword)
       if (ranges.length == 0) continue
-      let obj = new Line(cword, text, i + 1, ranges)
-      if (i + 1 == lnum) {
+      let obj = new Line(cword, text, start + i, ranges)
+      if (start + i == lnum) {
         range = obj.getRange(col)
       }
       this.lines.push(obj)
     }
-    this.minLnum = lines.length ? lines[0].lnum : 0
-    this.maxLnum = lines.length ? lines[lines.length - 1].lnum : 0
-    this.bufnr = bufnr
-    this.activted = true
-    await this.nvim.command('let g:rename_activted = 1')
+    this.bufnr = await nvim.call('bufnr', ['%'])
+    this.startLnum = lines.length ? lines[0].lnum : 0
+    this.endLnum = lines.length ? lines[lines.length - 1].lnum : 0
+    let startIdx = this.startLnum - start
+    this.origLines = contents.slice(startIdx, this.endLnum - this.startLnum + 1)
     // TODO may need change params
     await buffer.request('nvim_buf_attach', [buffer, false, {}])
     await this.nvim.call('clearmatches', [])
-    await this.highlightAll()
-    if (range) {
-      await this.echoMessage(range)
+    if (currentOnly) {
+      if (range) {
+        await this.addHighlight(lnum, range)
+      }
+    } else {
+      await this.selectAll()
+      if (range) await this.echoMessage(range)
     }
+    this.activted = true
+    await this.nvim.command('let g:rename_activted = 1')
   }
 
   public async stop():Promise<void> {
     if (!this.activted) return
     this.activted = false
     let {buffer, srcId} = this
-    this.buffer = this.chars = null
+    this.buffer = this.origLines = this.lines = this.chars = null
     await buffer.clearHighlight({srcId})
     this.lines = []
     this.activted = false
@@ -206,19 +217,19 @@ export default class Manager {
     return true
   }
 
-  public async highlightAll():Promise<void> {
+  public async selectAll():Promise<void> {
     let {srcId, buffer} = this
     for (let line of this.lines) {
       let {ranges, lnum} = line
       for (let r of ranges) {
-        await this.addHighlight(lnum, r.start, r.start + r.len)
+        await this.addHighlight(lnum, r)
       }
     }
   }
 
   // goto next
   public async nextItem():Promise<void> {
-    let {maxLnum, lines, nvim} = this
+    let {endLnum, lines, nvim} = this
     let [_, lnum, col] = await this.nvim.call('getcurpos')
     let r = null
     for (let i = 0, l = lines.length; i < l; i++) {
@@ -244,7 +255,7 @@ export default class Manager {
 
   // goto prev
   public async prevItem():Promise<void> {
-    let {maxLnum, lines, nvim} = this
+    let {endLnum, lines, nvim} = this
     let [_, lnum, col] = await this.nvim.call('getcurpos')
     let r = null
     for (let i = lines.length - 1; i >= 0; i--) {
@@ -321,7 +332,7 @@ export default class Manager {
       let active = (range.active && r !== range) || (!r.active && range === r)
       range.active = active
       if (active) {
-        await this.addHighlight(lnum, range.start, range.start + range.len)
+        await this.addHighlight(lnum, range)
       }
     }
     for (let line of lines) {
@@ -340,6 +351,7 @@ export default class Manager {
 
   private async gotoRange(lnum:number, range:Range):Promise<void> {
     let {nvim} = this
+    await this.addHighlight(lnum, range)
     await nvim.call('cursor', [lnum, range.start + 1])
     await this.echoMessage(range)
   }
@@ -361,15 +373,18 @@ export default class Manager {
 
   private async echoMessage(r:Range):Promise<void> {
     let {nvim} = this
-    let [i, total] = this.getCountInfo(r)
+    let info = this.getCountInfo(r)
+    if (!info) return
+    let [i, total] = info
     let {word} = this.lines[0]
     await echoMessage(nvim, `/\\<${word}\\> match ${i} of ${total}`)
   }
 
-  private getCountInfo(r:Range):[number, number] {
+  private getCountInfo(r:Range):[number, number]|null {
     let i = 0
     let total = 0
     let found = false
+    if (!r.active) return null
     for (let line of this.lines) {
       let {activeRanges} = line
       total += activeRanges.length
@@ -383,9 +398,7 @@ export default class Manager {
         }
       }
     }
-    if (!found) {
-      i = 0
-    }
+    if (!found) return null
     return [i, total]
   }
 }
