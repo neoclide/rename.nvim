@@ -1,8 +1,57 @@
-if exists('did_rename_loaded') || v:version < 700
+if exists('did_rename_nvim_loaded') || v:version < 700
   finish
 endif
-let did_rename_loaded = 1
+let did_rename_nvim_loaded = 1
 let g:rename_activted = 0
+let g:rename_search_vcs_root = get(g:, 'rename_search_vcs_root', 1)
+let g:rename_search_execute = get(g:, 'rename_search_execute', '')
+let g:rename_search_winpos = get(g:, 'rename_search_winpos', 'left')
+let g:rename_spinner_type = get(g:, 'rename_spinner_type', 'bouncingBar')
+let g:rename_search_extra_args = get(g:, 'rename_search_extra_args', ['-C', 3])
+
+function! s:SetSearchBuffer()
+  setl bufhidden=hide
+  setl buftype=nofile
+  setl cursorline
+  setl nobuflisted
+  setl nofoldenable
+  setl nolist
+  setl nospell
+  setl noswapfile
+  setl scrolloff=0
+  setl textwidth=0
+  setl winfixheight
+  setl winfixwidth
+  setl wrap
+  syntax clear
+  syntax case match
+  syntax match renameSearchFilename    /^.*\ze:$/
+  syntax match renameSearchLnumMatch   /^\d\+:/
+  syntax match renameSearchLnumUnmatch /^\d\+-/
+  syntax match renameSearchCuttingLine /^\.\+$/
+  syntax match renameSearchError /^Error:/
+
+  " highlightment group can be shared between different syntaxes
+  hi def link renameSearchFilename     Title
+  hi def link renameSearchLnumMatch    MoreMsg
+  hi def link renameSearchLnumUnmatch  LineNr
+  hi def link renameSearchSelectedLine Visual
+  hi def link renameSearchMatch        Special
+  hi def link renameSearchError        Error
+
+  nnoremap <buffer> <C-c> :<C-u>RenameSearchStop<CR>
+  nnoremap <buffer> q     :bd!<CR>
+  nnoremap <buffer> <CR>  :call RenameSearchAction('open', 0)<CR>
+  nnoremap <buffer> s     :call RenameSearchAction('open', 1)<CR>
+  nnoremap <buffer> t     :call RenameSearchAction('open', 2)<CR>
+  nnoremap <buffer> p     :call RenameSearchAction('open', 3)<CR>
+  nnoremap <buffer> <C-n> :call RenameSearchAction('move', 'next')<CR>
+  nnoremap <buffer> <C-p> :call RenameSearchAction('move', 'prev')<CR>
+
+  command! -nargs=0 -buffer -bang RenameSearchStop :call RenameSearchAction('stop','<bang>')
+  doautocmd User RenameSearchStart
+  let b:search_cwd = getcwd()
+endfunction
 
 function! s:Start(currentOnly)
   if get(g:, 'rename_activted', 0)
@@ -20,13 +69,6 @@ function! s:Start(currentOnly)
         \ 'currentOnly': a:currentOnly,
         \})
   return
-endfunction
-
-function! s:OnCharInsert(char)
-  if !get(g:, 'rename_activted', 0)
-    return
-  endif
-  call RenameCharInsert(a:char)
 endfunction
 
 function! s:CreateKeyMap(key, func)
@@ -55,10 +97,10 @@ function! s:Init()
   call s:CreateKeyMap(end_key, 'RenameEnd')
   call s:CreateKeyMap('<esc>', 'RenameCancel')
 
-  augroup rename_nvim
+  augroup rename_search
     autocmd!
-    autocmd BufLeave,BufWritePost,BufUnload * :call RenameCancel(expand('<abuf>'))
-    autocmd InsertCharPre * :call s:OnCharInsert(v:char)
+    autocmd BufNewFile __rename_search__  :call s:SetSearchBuffer()
+    autocmd BufUnload __rename_search__ call RenameBufferUnload(+expand('<abuf>'))
   augroup end
 endfunction
 

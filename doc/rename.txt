@@ -11,13 +11,20 @@ Install			|rename-install|
 Usage			|rename-usage|
 Interface		|rename-interface|
   Variables		  |rename-variables|
-    g:rename_start_key     |g:rename_start_key|
-    g:rename_toggle_key    |g:rename_toggle_key|
-    g:rename_next_key      |g:rename_next_key|
-    g:rename_prev_key      |g:rename_prev_key|
-    g:rename_begin_key     |g:rename_begin_key|
-    g:rename_end_key       |g:rename_end_key|
+    g:rename_start_key      	|g:rename_start_key|
+    g:rename_toggle_key     	|g:rename_toggle_key|
+    g:rename_next_key       	|g:rename_next_key|
+    g:rename_prev_key       	|g:rename_prev_key|
+    g:rename_begin_key      	|g:rename_begin_key|
+    g:rename_end_key        	|g:rename_end_key|
+    g:rename_search_execute 	|g:rename_search_execute|
+    g:rename_search_vcs_root	|g:rename_search_vcs_root|
+    g:rename_search_winpos  	|g:rename_search_winpos|
+    g:rename_search_extra_args  |g:rename_search_extra_args|
+    g:rename_spinner_type   	|g:rename_spinner_type|
   Functions		  |rename-functions|
+  Commands		  |rename-commands|
+    Search arguments       |reanme-search-args|
 Faq			|rename-faq|
 Changelog		|rename-changelog|
 
@@ -81,35 +88,85 @@ INTERFACE					*rename-interface*
 VARIABLES 					*rename-variables*
 
 g:rename_start_key                            	*g:rename_start_key*
-		    Trigger key for active rename, default to |<C-a>|
+			Trigger key for start rename with all same words in
+			current buffer actived.
+
+			Default: <C-a>
 
 
 g:rename_toggle_key                            	*g:rename_toggle_key*
-		    Trigger key for toggle variable under cursor,
-		    default to |<C-d>|, also used by start rename
-		    with current word actived.
+			Trigger key for toggle variable under cursor.
+			also used for start rename with current word actived.
+
+			Default: <C-d>
+
 
 g:rename_next_key                            	*g:rename_next_key*
-		    Goto next actived variable, default to |n|
+			Goto and active next same word.
+
+			Default: 'n'
 
 g:rename_prev_key                            	*g:rename_prev_key*
-		    Goto previous actived variable, default to |N|
+			Goto and active previous word.
+			
+			Default: 'N'
 
 g:rename_begin_key                            	*g:rename_begin_key*
-		    Goto first actived variable, default to |o|
+			Goto first actived word.
+			
+			Default: 'o'
 
 g:rename_end_key                            	*g:rename_end_key*
-		    Goto last actived variable, default to |O|
+			Goto last actived word.
+			
+			Default: 'O'
 
 g:rename_hl_guifg                            	*g:rename_hl_guifg*
-		    Foreground color for actived word, default
-		    to 'white'
+			Foreground color for actived word.
+
+			Default: 'white'
 
 g:rename_hl_guibg                            	*g:rename_hl_guibg*
-		    Background color for actived word, default
-		    to 'magenta'
+			Background color for actived word.
+			
+			Default: 'magenta'
 
-------------------------------------------------------------------------------
+g:rename_search_execute 			*g:rename_search_execute*
+			The executable command used for rename search, could be
+			'ag', 'rg' or absolute path to ag/rg.  Rename would
+			detect which command to use, 'rg' would be prefered than
+			'ag'
+
+			Default: ''
+
+g:rename_search_vcs_root 			*g:rename_search_vcs_root*
+			Whether use vsc root as CWD for search when possible,
+			set value to 0 or v:false to disable.
+
+			Default: 1
+
+g:rename_search_winpos 				*g:rename_search_winpos*
+			Window position for search result, could be 'left'
+			'top' 'right' 'bottom'
+
+			Default: 'left'
+
+g:rename_search_extra_args 			*g:rename_search_extra_args*
+			Extra arguments that would be prepend to search
+			arguments. ex: >
+
+			let g:rename_search_extra_args = ['-A', 2, '-B', 3]
+<
+			Default: ['-C', 3]
+
+g:rename_spinner_type 				*g:rename_spinner_type*
+			Spinner type for search loading. checkout file
+			`lib/util/spinners.js` for available options.
+
+			Default: 'bouncingBar'
+
+
+==============================================================================
 FUNCTIONS 					*rename-functions*
 
 						*health#rename#check()*
@@ -117,7 +174,109 @@ health#rename#check()
 	    Run health check.
 
 ==============================================================================
+COMMANDS 					*rename-commands*
+
+:RenameSearch {args}  				*:RenameSearch*
+		Start async searching with |rename-search-args|, ex: >
+		
+		" search for fixed string
+		:RenameSearch foo.bar
+
+		" search with regex
+		:RenameSearch -e r\w+me
+
+:RenameSearchStop[!] 				*:RenameSearchStop*
+		Stop search process in current buffer, use `!` to send
+		`SIGKILL`
+		
+	
+------------------------------------------------------------------------------
+						*rename-search-args*
+
+Search arguments can be used to get better results.
+
+Note: <tab> could be used for full name args completion.
+
+'-A', '-after'  				*rename-args-a*
+
+  How many lines after the matching line will be printed.
+  '-A' is an alias for '-after'. >
+
+    :ReanmeSearch -A 10 foo
+
+'-B', '-before' 				*rename-args-b*
+
+  How many lines before the matching line will be printed.
+>
+    :ReanmeSearch -B 10 foo
+
+'-C', '-context' 				*rename-args-c*
+
+  Defines how many lines around the matching line will be printed.
+>
+    :ReanmeSearch -C 10 foo
+
+'-S', '-smartcase' 				*rename-args-s*
+
+  Use smart case for search.
+
+
+'-i', '-ignorecase'  				*rename-args-i*
+
+  Make this search be case-insensitive.
+>
+	:RenameSearch -i foo
+
+'-t', '-extension' 				*rename-args-t*
+
+  Files extension for search.
+>
+	" search only ts files
+	:ReanmeSearch -t ts foo
+<
+  Note: this option could be used multiply times.
+
+'-l', '-literal'                                 *rename-args-l*
+
+  Use pattern as literal string.
+
+  Note: Unlike how 'ag' and 'rg' works in command line,
+  this is default behaviour, use '-e' option for regex search.
+
+'-w', '-word' 				 	*rename-args-w*
+
+  Only match whole words.
+
+'-e', '-regex' 				 	*rename-args-e*
+
+  Use pattern as regular expression, could be used multiply times.
+>
+ 	:RenameSearch -e foo.*
+
+'-u', '-skip-vcs-ignores' 		 	*rename-args-u*
+
+  Ignore VCS ignore files (.gitignore, .hgignore), but still use .ignore.
+
+==============================================================================
 FAQ						*rename-faq*
+
+Q: How could I stop the RenameSearch process?
+
+A: Press <C-c> in RenameSearch buffer or use command |RenameSearchStop|.
+
+------------------------------------------------------------------------------
+
+Q: How could I make RenameSearch always use vim's working directory?
+
+A: `let g:rename_search_vcs_root = 0`
+
+------------------------------------------------------------------------------
+
+Q: How could I change setting of RenameSearch buffer?
+
+A: You can use autocmd 'RenameSearchStart' like: >
+
+	autocmd User RenameSearchStart :setl nowrap | setl nonu | setl nornu
 
 ==============================================================================
 CHANGELOG					*rename-changelog*
@@ -127,4 +286,4 @@ May 30, 2018 - 0.1
 	First release.
 
 ==============================================================================
-vim:tw=78:ts=8:ft=help:norl:noet:fen:
+vim:tw=78:nosta:ts=8:sts=0:ft=help:noet:fen:fdm=marker:

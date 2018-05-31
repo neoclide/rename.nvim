@@ -1,5 +1,8 @@
 import {Range} from '../types'
-import {byteIndex, byteLength} from '../util/index'
+import {
+  byteIndex,
+  byteLength
+} from '../util/string'
 const logger = require('../util/logger')('model-chars')
 
 export class CharRange {

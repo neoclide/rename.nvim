@@ -1,21 +1,8 @@
 import {Neovim} from 'neovim'
+import fs = require('fs')
+import path = require('path')
 const logger = require('./logger')('util-index')
-
-export function group<T>(list:T[], max:number):T[][] {
-  let res = []
-  let arr:T[] = []
-  for (let i = 0, l = list.length; i < l; i++) {
-    if (arr.length === max) {
-      res.push(arr)
-      arr = []
-    }
-    arr.push(list[i])
-  }
-  if (arr.length) {
-    res.push(arr)
-  }
-  return res
-}
+const vsc_folderss = ['.git', '.hg', '.svn', '.bzr', '_darcs']
 
 async function echoMsg(nvim:Neovim, line: string, hl: string):Promise<void> {
   try {
@@ -42,17 +29,6 @@ export async function echoMessage(nvim: Neovim, line: string):Promise<void> {
   return await echoMsg(nvim, line, 'MoreMsg')
 }
 
-// nvim use utf8
-export function byteLength(str:string):number {
-  let buf = Buffer.from(str, 'utf8')
-  return buf.length
-}
-
-export function byteIndex(content:string, index:number):number {
-  let s = content.slice(0, index)
-  return byteLength(s)
-}
-
 export function debounce(fn:Function, t:number):Function {
   let last = null
   let timeout = null
@@ -72,26 +48,17 @@ export function debounce(fn:Function, t:number):Function {
   return cb
 }
 
-export function diffString(f:string[], t:string[]):[string, string] {
-  let af = f.slice()
-  let at = t.slice()
-  let minLen = Math.min(af.length, at.length)
-  for (let i = 0; i < minLen; i++) {
-    if (af[0] == at[0]) {
-      af.shift()
-      at.shift()
-    } else {
-      break
+export function findVcsRoot(dir:string):string|null {
+  let {root} = path.parse(dir)
+  let p = null
+  while (dir != root) {
+    for (let n of vsc_folderss) {
+      if (fs.existsSync(path.join(dir, n))) {
+        p = dir
+        break
+      }
     }
+    dir = path.dirname(dir)
   }
-  minLen = Math.min(af.length, at.length)
-  for (let i = 0; i < minLen; i++) {
-    if (af[af.length - 1] == at[at.length - 1]) {
-      af.pop()
-      at.pop()
-    } else {
-      break
-    }
-  }
-  return [af.join(''), at.join('')]
+  return p
 }

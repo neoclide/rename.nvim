@@ -2,19 +2,31 @@
 process.umask = ()=> {
   return 18
 }
-import { Plugin, Function, Neovim } from 'neovim'
+import { Plugin, Command, Function, Neovim } from 'neovim'
 import Manager from './manager'
-import {StartOption} from './types'
+import {
+  StartOption,
+  OpenType,
+} from './types'
+import {
+  findVcsRoot,
+  echoMessage
+} from './util/index'
+import Search from './search'
+import {optionList, convertOptions} from './option'
+import path = require('path')
 const logger = require('./util/logger')('index')
 
 @Plugin({dev: false})
 export default class RenamePlugin {
   public nvim: Neovim
   public manager: Manager
+  private searches:Search[]
 
   constructor(nvim: Neovim) {
     this.nvim = nvim
     this.manager = new Manager(nvim)
+    this.searches = []
   }
 
   @Function('RenameStart', {sync: true})
@@ -58,8 +70,130 @@ export default class RenamePlugin {
   }
 
   @Function('RenameCharInsert', {sync: false})
-  public async reanmeCharInsert(args:any[]):Promise<void> {
+  public async renameCharInsert(args:any[]):Promise<void> {
     let {manager} = this
     await manager.onCharInsert(args[0])
+  }
+
+  @Command('RenameSearch', {
+    nargs: '+',
+    sync: true,
+    complete: 'customlist,RenameSearchCompleteFunc'
+  })
+  public async renameSearch(args:any[]):Promise<void> {
+    let exe:string = await this.nvim.call('rename#get_execute')
+    if (!exe) return
+    let cmd = exe.endsWith('ag') ? 'ag' : 'rg'
+    let extraArgs = await this.nvim.getVar('rename_search_extra_args')
+    if (Array.isArray(extraArgs) && extraArgs.length) {
+      args = extraArgs.concat(args)
+    }
+    let opts = convertOptions(args, cmd)
+    let useVcs = await this.nvim.getVar('rename_search_vcs_root')
+    let cwd = await this.nvim.call('getcwd')
+    if (useVcs) {
+      let full_path = await this.nvim.call('rename#get_fullpath')
+      let dir = full_path ? path.dirname(full_path) : cwd
+      dir = findVcsRoot(dir)
+      if (dir) cwd = dir
+    }
+    let search = new Search(this.nvim, cmd, opts, cwd)
+    await search.start()
+    this.searches.push(search)
+  }
+
+  @Function('RenameSearchCompleteFunc', {sync: true})
+  public async renameSearchCompleteFunc(args:[string, string, number]):Promise<string[]> {
+    let lead = args[0]
+    return optionList.filter(s => s.indexOf(lead) === 0)
+  }
+
+  @Function('RenameBufferUnload', {sync: true})
+  public async renameBufferUnload(args:[number]):Promise<void> {
+    let bufnr = args[0]
+    let search = this.searches.find(o => o.bufnr == bufnr)
+    if (search) {
+      await search.stop(false)
+      let idx = this.searches.findIndex(o => o === search)
+      this.searches.splice(idx, 1)
+    }
+  }
+
+  @Function('RenameSearchAction', {sync: true})
+  public async renameSearchAction(args:any[]):Promise<void> {
+    let [action, ...opts] = args
+    switch (action) {
+      case 'stop':
+        await this.stopSearch(opts[0] == '!')
+        break
+      case 'open':
+        await this.openFile(opts[0])
+        break
+      case 'move':
+        await this.onMove(opts[0])
+        break
+      default:
+        logger.debug('not implementated')
+    }
+  }
+
+  private async stopSearch(force:boolean):Promise<void> {
+    let search = await this.getSearch()
+    if (search) await search.stop(force)
+  }
+
+  private async getSearch():Promise<Search|null> {
+    let bufnr = await this.nvim.call('bufnr', ['%'])
+    let search = this.searches.find(o => o.bufnr == bufnr)
+    return search
+  }
+
+  private async openFile(openType:OpenType):Promise<void> {
+    let {nvim} = this
+    let line = await nvim.call('getline', ['.'])
+    if (!/\d+[-:]/.test(line)) return
+    let lnum = Number(line.match(/(\d+)[-:]/)[1])
+    let search = await this.getSearch()
+    if (!search) return
+    let filepath = await nvim.call('rename#get_filepath')
+    if (!filepath) return
+    let cwd = await nvim.call('getcwd')
+    let orig_cwd = await nvim.eval('b:search_cwd')
+    let fullpath = path.join(orig_cwd as string, filepath)
+    let file = path.relative(cwd, fullpath)
+    switch (openType) {
+      case OpenType.Edit:
+        await nvim.command(`edit +${lnum} ${file}`)
+        break
+      case OpenType.Split:
+        await nvim.command(`sp +${lnum} ${file}`)
+        break
+      case OpenType.Tab:
+        await nvim.command(`tabe +${lnum} ${file}`)
+        break
+      case OpenType.Preview:
+        await nvim.command(`pedit +${lnum} ${file}`)
+        break
+    }
+  }
+
+  private async onMove(moveType:string):Promise<void> {
+    let search = await this.getSearch()
+    if (!search) return
+    let [_, lnum, col] = await this.nvim.call('getcurpos')
+    let arr
+    switch (moveType) {
+      case 'prev':
+        arr = search.getPrevPosition(lnum - 1, col - 1)
+        break
+      case 'next':
+        arr = search.getNextPosition(lnum - 1, col - 1)
+        break
+    }
+    if (arr) {
+      let [lnum, col, index, len] = arr
+      await this.nvim.call('cursor', [lnum + 1, col + 1])
+      await echoMessage(this.nvim, `matches ${index} of ${len}`)
+    }
   }
 }

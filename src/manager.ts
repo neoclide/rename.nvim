@@ -10,11 +10,13 @@ import {ArrayIterator} from './util/iterator'
 import {
   echoWarning,
   echoErr,
+  echoMessage
+} from './util/index'
+import {
   byteIndex,
   byteLength,
   diffString,
-  echoMessage
-} from './util/index'
+} from './util/string'
 import debounce = require('debounce')
 
 const logger = require('./util/logger')('manager')
@@ -192,6 +194,7 @@ export default class Manager {
       await this.selectAll()
       if (range) await this.echoMessage(range)
     }
+    await nvim.call('rename#setup_autocmd')
     this.activted = true
     await this.nvim.command('let g:rename_activted = 1')
   }

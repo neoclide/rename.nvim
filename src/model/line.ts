@@ -1,9 +1,8 @@
 import {Neovim, Buffer} from 'neovim'
 import {ArrayIterator} from '../util/iterator'
 import {
-  group,
   byteLength,
-  byteIndex} from '../util/index'
+  byteIndex} from '../util/string'
 import {
   Range,
   Cols
