@@ -1,6 +1,6 @@
 *rename.txt*				Variable rename plugin for neovim.
 
-Version: 0.1
+Version: 0.2
 Author: Qiming Zhao <chemzqm at gmail.com>
 License: MIT license
 
@@ -23,8 +23,10 @@ Interface		|rename-interface|
     g:rename_search_extra_args  |g:rename_search_extra_args|
     g:rename_spinner_type   	|g:rename_spinner_type|
   Functions		  |rename-functions|
-  Commands		  |rename-commands|
-    Search arguments       |reanme-search-args|
+Search 			|rename-search|
+  Search commands	  |rename-search-commands|
+  Search arguments    	  |rename-search-args|
+  Search keymap 	  |rename-search-keymap|
 Faq			|rename-faq|
 Changelog		|rename-changelog|
 
@@ -174,7 +176,16 @@ health#rename#check()
 	    Run health check.
 
 ==============================================================================
-COMMANDS 					*rename-commands*
+SEARCH 						*rename-search*
+
+Project search is provided for rename variables project wide.
+
+RenameSearch only support 'ag' and 'ripgrep', 'ripgrep' is preferred, check out
+
+https://github.com/BurntSushi/ripgrep#installation for installation.
+
+------------------------------------------------------------------------------
+	 					*rename-search-commands*
 
 :RenameSearch {args}  				*:RenameSearch*
 		Start async searching with |rename-search-args|, ex: >
@@ -188,7 +199,6 @@ COMMANDS 					*rename-commands*
 :RenameSearchStop[!] 				*:RenameSearchStop*
 		Stop search process in current buffer, use `!` to send
 		`SIGKILL`
-		
 	
 ------------------------------------------------------------------------------
 						*rename-search-args*
@@ -257,6 +267,20 @@ Note: <tab> could be used for full name args completion.
 
   Ignore VCS ignore files (.gitignore, .hgignore), but still use .ignore.
 
+------------------------------------------------------------------------------
+						*rename-search-keymap*
+
+Keymaps have provided for easier work with search buffer:
+
+	<C-c> 		Stop search process.
+	<q> 		Exit and delete search buffer.
+	<CR> 		Open file under cursor in current buffer.
+	<s> 		Open file under cursor in split buffer.
+	<t> 		Open file under cursor in new tab.
+	<p>		Open file under cursor in preivew window.
+	<C-n>		Goto next match.
+	<C-p>		Goto previous match.
+
 ==============================================================================
 FAQ						*rename-faq*
 
@@ -284,6 +308,10 @@ CHANGELOG					*rename-changelog*
 May 30, 2018 - 0.1
 
 	First release.
+
+Jun 01, 2018 - 0.2
+
+	Support project search.
 
 ==============================================================================
 vim:tw=78:nosta:ts=8:sts=0:ft=help:noet:fen:fdm=marker:

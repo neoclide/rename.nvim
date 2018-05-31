@@ -176,9 +176,9 @@ export default class Search extends EventEmitter {
     let {interval, frames} = config
     let len = frames.length
     let frameIndex = 0
-    let draw = (first:boolean):void => {
+    let draw = ():void => {
       let {buffer, running} = this
-      if ((!running && !first) || !buffer) return
+      if (!running) return
       let text = frames[frameIndex]
       this.setStatusLine(text).catch(err => {
         logger.error(err.message)
