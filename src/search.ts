@@ -8,6 +8,9 @@ import {
   Match
 } from './types'
 import {
+  echoErr
+} from './util'
+import {
   findLiteralMathces,
   findRegExMatches,
   byteLength,
@@ -33,6 +36,7 @@ export default class Search extends EventEmitter {
   private fileCount = 0
   private matchCount = 0
   private argString:string
+  private startTs:number|null
   private positions:Position[]
   private lines:string[]
   constructor(
@@ -63,20 +67,25 @@ export default class Search extends EventEmitter {
     let buffer = this.buffer = await nvim.buffer
     await buffer.append([''])
     this.lines.push('', '')
-    await this.spin()
-    await this.setStatusLine('')
     let t = command.endsWith('ag') ? 'ag' : 'rg'
     this.argString = args.join(' ')
+    await this.setStatusLine()
     if (t == 'rg') {
       args.push('-n', '--heading', '--color', 'always', '--colors', 'match:fg:red')
     } else {
       // make it red
       args.push('--heading', '--color', '--color-match', '1;31')
     }
+    await this.spin()
     let child = this.child = cp.spawn(command, args, { cwd: this.cwd })
+    this.startTs = Date.now()
     this.running = true
     const rl = readline.createInterface({
       input: child.stdout
+    })
+    child.on('error', err => {
+      this.running = false
+      echoErr(nvim, err.message).catch(err => { }) // tslint:disable-line
     })
     child.stderr.on('data', data => {
       let str = `Error: ${data.toString().replace(/\n/g, ' ')}`
@@ -105,11 +114,6 @@ export default class Search extends EventEmitter {
       if (matches.length) {
         let jump = this.matchCount == 0
         this.matchCount = this.matchCount + matches.length
-        await buffer.setLines(this.matchLine, {
-          start: 0,
-          end: 1,
-          strictIndexing: true
-        })
         await Promise.all(matches.map(m => {
           positions.push({lnum, startCol:m[0], endCol:m[1]})
           return buffer.addHighlight({
@@ -138,34 +142,22 @@ export default class Search extends EventEmitter {
     if (code) {
       logger.info(`${command} exited with code: ${code}`)
     }
-    try {
-      await buffer.setLines(this.matchLine, {
-        start: 0,
-        end: 1,
-        strictIndexing: true
-      })
-      await this.setStatusLine('')
-      await this.stop(false)
-    } catch (e) {
-      logger.error(e.message)
-    }
+    await this.stop(false)
   }
 
-  public async setStatusLine(spin:string):Promise<void> {
+  public async setStatusLine():Promise<void> {
     let {nvim, command, argString, cwd} = this
     let str = `${command} ${argString}`
     str = str.replace(/\\/g, '\\\\')
           .replace(/\s/g, '\\ ')
           .replace(/"/g, '\\"')
-    spin = spin.replace(/\s/g, '\\ ')
-    await nvim.command(`setl statusline=${spin}\\ ${str}`)
+    await nvim.command(`setl statusline=\\ ${str}`)
   }
 
   public async stop(force:boolean):Promise<void> {
     let {interval, child, buffer, running, fileCount} = this
     let signal = force ? 'SIGKILL' : 'SIGHUP'
     if (running && !child.killed) child.kill(signal)
-    clearInterval(interval)
   }
 
   private async spin():Promise<void> {
@@ -176,16 +168,18 @@ export default class Search extends EventEmitter {
     let {interval, frames} = config
     let len = frames.length
     let frameIndex = 0
-    let draw = ():void => {
-      let {buffer, running} = this
-      if (!running) return
-      let text = frames[frameIndex]
-      this.setStatusLine(text).catch(err => {
-        logger.error(err.message)
+    let draw = async () => {
+      let {buffer, running, interval} = this
+      let text = running ? frames[frameIndex] + ' ' : ''
+      await buffer.setLines(`${text}${this.matchLine}`, {
+        start: 0,
+        end: 1,
+        strictIndexing: true
       })
       frameIndex ++
-      if (frameIndex === len) {
-        frameIndex = 0
+      if (frameIndex === len) frameIndex = 0
+      if (!running)  {
+        clearInterval(this.interval)
       }
     }
     this.interval = setInterval(draw, interval)
@@ -209,7 +203,8 @@ export default class Search extends EventEmitter {
   private get matchLine():string {
     let {matchCount, fileCount} = this
     if (matchCount == 0) return 'No resultes'
-    return `${matchCount} matches across ${fileCount} files`
+    let ts = Date.now() - this.startTs
+    return `Files:${fileCount}   Matches:${matchCount}   Time:${ts}ms`
   }
 
   private getOpenCommand(pos:string):string {

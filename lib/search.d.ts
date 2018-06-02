@@ -15,6 +15,7 @@ export default class Search extends EventEmitter {
     private fileCount;
     private matchCount;
     private argString;
+    private startTs;
     private positions;
     private lines;
     constructor(nvim: Neovim, command: string, args: string[][], cwd: string);
@@ -22,7 +23,7 @@ export default class Search extends EventEmitter {
     start(): Promise<void>;
     private onLine(line);
     private onExit(code);
-    setStatusLine(spin: string): Promise<void>;
+    setStatusLine(): Promise<void>;
     stop(force: boolean): Promise<void>;
     private spin();
     private convertLine(line);

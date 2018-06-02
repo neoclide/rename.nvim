@@ -12,9 +12,7 @@ let g:rename_search_extra_args = get(g:, 'rename_search_extra_args', ['-C', 3])
 function! s:SetSearchBuffer()
   setl bufhidden=hide
   setl buftype=nofile
-  setl cursorline
   setl nobuflisted
-  setl nofoldenable
   setl nolist
   setl nospell
   setl noswapfile
@@ -22,7 +20,6 @@ function! s:SetSearchBuffer()
   setl textwidth=0
   setl winfixheight
   setl winfixwidth
-  setl wrap
   syntax clear
   syntax case match
   syntax match renameSearchFilename    /^.*\ze:$/
@@ -30,6 +27,9 @@ function! s:SetSearchBuffer()
   syntax match renameSearchLnumUnmatch /^\d\+-/
   syntax match renameSearchCuttingLine /^\.\+$/
   syntax match renameSearchError /^Error:/
+  syntax match renameSearchFirstLine   /\%1l.*/
+  syntax match renameSearchLabel /\w\+:/ contained containedin=renameSearchFirstLine
+  syntax match renameSearchNumber /\d\+/ contained containedin=renameSearchFirstLine
 
   " highlightment group can be shared between different syntaxes
   hi def link renameSearchFilename     Title
@@ -38,8 +38,10 @@ function! s:SetSearchBuffer()
   hi def link renameSearchSelectedLine Visual
   hi def link renameSearchMatch        Special
   hi def link renameSearchError        Error
+  hi def link renameSearchLabel        Label
+  hi def link renameSearchNumber       Number
 
-  nnoremap <buffer> <C-c> :<C-u>RenameSearchStop<CR>
+  nnoremap <silent> <buffer> <C-c> :<C-u>RenameSearchStop<CR>
   nnoremap <buffer> q     :bd!<CR>
   nnoremap <buffer> <CR>  :call RenameSearchAction('open', 0)<CR>
   nnoremap <buffer> s     :call RenameSearchAction('open', 1)<CR>
@@ -58,10 +60,6 @@ function! s:Start(currentOnly)
     return
   endif
   let cword = expand('<cword>')
-  if line('$') > 30000
-    echohl WarningMsg | echon '[rename.nvim] File too big, aborted!' | echohl None
-    return
-  endif
   if empty(cword) | return | endif
   call RenameStart({
         \ 'cword': cword,

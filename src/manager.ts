@@ -125,6 +125,7 @@ export default class Manager {
       if (/Vim:E523/.test(e.message)) {
         return
       }
+      logger.error(e.message)
     }
     // fix cursor position
     if (pl) {
@@ -157,35 +158,32 @@ export default class Manager {
     let {activted, nvim} = this
     let {cword, iskeyword, currentOnly,includePattern} = opts
     if (activted || !cword) return
-    let res = await nvim.call('rename#get_content', [cword])
-    if (!res) return
-    let [start, end, content] = res
-    let contents = content.split(/\n/g)
+    let buffer = this.buffer = await nvim.buffer
+    let contents = await buffer.lines
     let [_, lnum, col] = await nvim.call('getcurpos', [])
     let chars = this.chars = new Chars(iskeyword)
     let lines = this.lines = []
     let lineRe = includePattern ? new RegExp(includePattern) : null
-    let buffer = this.buffer = await nvim.buffer
     let range = null
     for (let i = 0, l = contents.length; i < l; i++) {
       let text = contents[i]
       if (lineRe && !lineRe.test(text)) continue
       let ranges = chars.getRanges(text, cword)
       if (ranges.length == 0) continue
-      let obj = new Line(cword, text, start + i, ranges)
-      if (start + i == lnum) {
+      let obj = new Line(cword, text, i + 1, ranges)
+      if (i + 1 == lnum) {
         range = obj.getRange(col)
       }
       this.lines.push(obj)
     }
+    if (lines.length == 0) return
     this.bufnr = await nvim.call('bufnr', ['%'])
-    this.startLnum = lines.length ? lines[0].lnum : 0
-    this.endLnum = lines.length ? lines[lines.length - 1].lnum : 0
-    let startIdx = this.startLnum - start
-    this.origLines = contents.slice(startIdx, this.endLnum - this.startLnum + 1)
-    // TODO may need change params
+    this.startLnum = lines[0].lnum
+    this.endLnum = lines[lines.length - 1].lnum
+    this.origLines = contents.slice(this.startLnum - 1, this.endLnum - 1)
+    // TODO the API could change
     await buffer.request('nvim_buf_attach', [buffer, false, {}])
-    await this.nvim.call('clearmatches', [])
+    // await this.nvim.call('clearmatches', [])
     if (currentOnly) {
       if (range) {
         await this.addHighlight(lnum, range)
@@ -207,7 +205,7 @@ export default class Manager {
     await buffer.clearHighlight({srcId})
     this.lines = []
     this.activted = false
-    // TODO may need change params
+    // TODO API could change
     await buffer.request('nvim_buf_detach', [buffer])
     await this.nvim.command('let g:rename_activted = 0')
   }
