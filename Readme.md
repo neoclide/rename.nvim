@@ -10,7 +10,19 @@ Rename variable made easy.
 
 It's fast and intuitive, while not listen to any of `Cursor` & `TextChange` events at all.
 
-![rename gif](https://user-images.githubusercontent.com/251450/40681334-6e9bd83c-63bb-11e8-91db-ef80a30e66e7.gif)
+![partial](https://user-images.githubusercontent.com/251450/40894260-fce77880-67da-11e8-8ee8-6b632edf99c7.gif)
+
+Start partial replace by `<C-d>`.
+
+![buffer](https://user-images.githubusercontent.com/251450/40894254-f56d2352-67da-11e8-86d5-c9292205b097.gif)
+
+Start replace in current buffer by `<C-a>`.
+
+![project](https://user-images.githubusercontent.com/251450/40894264-ff94b782-67da-11e8-91e7-c8f07a17c7e0.gif)
+
+Start project wide replace by mapping to `<Plug>(rename-search-replace)`
+
+Be sure to check out `:h rename-nvim` for full features.
 
 ## Work flow
 

@@ -1,4 +1,4 @@
-*rename.txt*				Variable rename plugin for neovim.
+*rename-nvim.txt*				Variable rename plugin for neovim.
 
 Version: 0.3
 Author: Qiming Zhao <chemzqm at gmail.com>
