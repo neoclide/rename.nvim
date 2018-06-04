@@ -195,6 +195,19 @@ RenameSearch only support 'ag' and 'ripgrep', 'ripgrep' is preferred, check out
 
 https://github.com/BurntSushi/ripgrep#installation for installation.
 
+						*rename-search-save*
+
+Rename search buffer can be edited and sync to file after save.  Before
+saving the buffer, you will be prompted for file change, after press <y> or
+<CR>, the changed lines would be synced to the files.
+
+Note: If you want the buffer in vim sync with changed files on save, it's
+better to have 'set autoread' in your init.vim.
+
+Note: Only the lines that contains matches would be synced, others just
+ignored.  You can remove lines to avoid replace, it would have no effect of
+file change.
+
 ------------------------------------------------------------------------------
 	 					*rename-search-commands*
 
@@ -289,7 +302,7 @@ Default keymaps for search buffer:
 
 	<C-c> 		Stop search process.
 	<q> 		Exit and delete search buffer.
-	<CR> 		Open file under cursor in current buffer.
+	<CR> 		Open file under cursor.
 	<C-n>		Goto next match.
 	<C-p>		Goto previous match.
 
