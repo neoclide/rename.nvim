@@ -1,17 +1,19 @@
+" rename plugin
 if exists('did_rename_nvim_loaded') || v:version < 700
   finish
 endif
 let did_rename_nvim_loaded = 1
-let g:rename_activted = 0
 let g:rename_search_vcs_root = get(g:, 'rename_search_vcs_root', 1)
 let g:rename_search_execute = get(g:, 'rename_search_execute', '')
 let g:rename_search_winpos = get(g:, 'rename_search_winpos', 'left')
 let g:rename_spinner_type = get(g:, 'rename_spinner_type', 'bouncingBar')
+let g:rename_search_auto_start = get(g:, 'rename_search_auto_start', 1)
 let g:rename_search_extra_args = get(g:, 'rename_search_extra_args', ['-C', 3])
 
 function! s:SetSearchBuffer()
   setl bufhidden=hide
-  setl buftype=nofile
+  setl filetype=rename
+  setl buftype=acwrite
   setl nobuflisted
   setl nolist
   setl nospell
@@ -20,19 +22,27 @@ function! s:SetSearchBuffer()
   setl textwidth=0
   setl winfixheight
   setl winfixwidth
+  setl foldmethod=expr
+  setl nofoldenable
+	setl foldexpr=RenameSearchFoldLevel(v:lnum)
+	setl foldtext=RenameSearchFoldText()
+  setl conceallevel=2
   syntax clear
   syntax case match
-  syntax match renameSearchFilename    /^.*\ze:$/
+  syntax match renameSearchFile        /^\$.*$/
   syntax match renameSearchLnumMatch   /^\d\+:/
   syntax match renameSearchLnumUnmatch /^\d\+-/
   syntax match renameSearchCuttingLine /^\.\+$/
-  syntax match renameSearchError /^Error:/
+  syntax match renameSearchError       /^Error:/
   syntax match renameSearchFirstLine   /\%1l.*/
-  syntax match renameSearchLabel /\w\+:/ contained containedin=renameSearchFirstLine
-  syntax match renameSearchNumber /\d\+/ contained containedin=renameSearchFirstLine
+  syntax match renameSearchFilePath    /^\$.*\ze:/ contained containedin=renameSearchFile
+  syntax match renameSearchDollar      /^\$/       contained containedin=renameSearchFilePath conceal
+  syntax match renameSearchFileMatch   /(.\+)$/    contained containedin=renameSearchFile
+  syntax match renameSearchLabel       /\w\+:/     contained containedin=renameSearchFirstLine
+  syntax match renameSearchNumber      /\d\+/      contained containedin=renameSearchFirstLine
 
   " highlightment group can be shared between different syntaxes
-  hi def link renameSearchFilename     Title
+  hi def link renameSearchFilePath     Title
   hi def link renameSearchLnumMatch    MoreMsg
   hi def link renameSearchLnumUnmatch  LineNr
   hi def link renameSearchSelectedLine Visual
@@ -40,13 +50,11 @@ function! s:SetSearchBuffer()
   hi def link renameSearchError        Error
   hi def link renameSearchLabel        Label
   hi def link renameSearchNumber       Number
+  hi def link renameSearchFileMatch    LineNr
 
   nnoremap <silent> <buffer> <C-c> :<C-u>RenameSearchStop<CR>
   nnoremap <buffer> q     :bd!<CR>
-  nnoremap <buffer> <CR>  :call RenameSearchAction('open', 0)<CR>
-  nnoremap <buffer> s     :call RenameSearchAction('open', 1)<CR>
-  nnoremap <buffer> t     :call RenameSearchAction('open', 2)<CR>
-  nnoremap <buffer> p     :call RenameSearchAction('open', 3)<CR>
+  nnoremap <buffer> <CR>  :call RenameSearchAction('open', 'edit')<CR>
   nnoremap <buffer> <C-n> :call RenameSearchAction('move', 'next')<CR>
   nnoremap <buffer> <C-p> :call RenameSearchAction('move', 'prev')<CR>
 
@@ -55,8 +63,19 @@ function! s:SetSearchBuffer()
   let b:search_cwd = getcwd()
 endfunction
 
+function! RenameSearchFoldLevel(lnum) abort
+  if a:lnum <= 2 | return 0 | endif
+  let line = getline(a:lnum)
+  if line =~# '^\s*$' | return 0 | endif
+  return 1
+endfunction
+
+function! RenameSearchFoldText()
+  return '  '.getline(v:foldstart)[1:]
+endfunction
+
 function! s:Start(currentOnly)
-  if get(g:, 'rename_activted', 0)
+  if get(b:, 'rename_actived', 0)
     return
   endif
   let cword = expand('<cword>')
@@ -70,7 +89,14 @@ function! s:Start(currentOnly)
 endfunction
 
 function! s:CreateKeyMap(key, func)
-  execute 'nnoremap <silent><expr> '.a:key.' g:rename_activted ? ":call '.a:func.'()<CR>" : "'.a:key.'"'
+  execute 'nnoremap <silent><expr> '.a:key.' get(b:, "rename_actived", 0) ? ":call '.a:func.'()<CR>" : "'.a:key.'"'
+endfunction
+
+function! s:SearchAndReplace()
+  let cword = expand('<cword>')
+  if !empty(cword)
+    execute 'RenameSearch -w '.cword
+  endif
 endfunction
 
 function! s:Init()
@@ -86,7 +112,7 @@ function! s:Init()
   let end_key = get(g:, 'rename_end_key', 'O')
 
   execute 'nnoremap <silent> '.start_key.' :call <SID>Start(0)<CR>'
-  execute 'nnoremap <silent><expr> '.toggle_key.' g:rename_activted ?'
+  execute 'nnoremap <silent><expr> '.toggle_key.' get(b:, "rename_actived", 0) ?'
         \.' ":call RenameToggle()<CR>" : ":call <SID>Start(1)<CR>"'
 
   call s:CreateKeyMap(next_key, 'RenameNext')
@@ -97,9 +123,12 @@ function! s:Init()
 
   augroup rename_search
     autocmd!
-    autocmd BufNewFile __rename_search__  :call s:SetSearchBuffer()
-    autocmd BufUnload __rename_search__ call RenameBufferUnload(+expand('<abuf>'))
+    autocmd BufNewFile  __rename_search__ :call s:SetSearchBuffer()
+    autocmd BufUnload   __rename_search__ :call RenameBufferUnload(+expand('<abuf>'))
+    autocmd BufWriteCmd __rename_search__ :call RenameSearchWrite(+expand('<abuf>'))
   augroup end
+
+  nnoremap <silent> <Plug>(rename-search-replace) :call <SID>SearchAndReplace()<CR>
 endfunction
 
 call s:Init()

@@ -1,14 +1,19 @@
 export declare type State = 'navigate' | 'edit';
-export declare const enum OpenType {
-    Edit = 0,
-    Split = 1,
-    Tab = 2,
-    Preview = 3,
+export declare const enum LineType {
+    Path = 0,
+    Content = 1,
+    Seperator = 2,
+    Empty = 3,
+    Unknown = 4,
 }
-export interface Position {
+export interface LineInfo {
+    content: string;
+    lineType: LineType;
+}
+export interface MatchInfo {
     lnum: number;
-    startCol: number;
-    endCol: number;
+    start: number;
+    end: number;
 }
 export interface PositionItem {
     lnum: number;
@@ -20,14 +25,17 @@ export interface StartOption {
     currentOnly?: boolean;
     includePattern?: string;
 }
-export interface DiffItem {
-    0: number;
-    1: string;
+export declare const enum ChangeType {
+    Delete = 0,
+    Update = 1,
 }
-export interface Match {
-    0: number;
-    1: number;
+export interface LineChange {
+    changeType: ChangeType;
+    content: string | null;
+    lnum: number;
 }
+export declare type Line = [number, string];
+export declare type Match = [number, number];
 export interface Range {
     start: number;
     len: number;

@@ -1,24 +1,19 @@
 import {Neovim, Buffer} from 'neovim'
-import {State,
-  DiffItem,
+import {
   StartOption,
   Range,
-  PositionItem} from './types'
+} from './types'
 import Line from './model/line'
 import {Chars} from './model/chars'
-import {ArrayIterator} from './util/iterator'
 import {
   echoWarning,
-  echoErr,
   echoMessage
 } from './util/index'
 import {
-  byteIndex,
   byteLength,
   diffString,
 } from './util/string'
 import debounce = require('debounce')
-
 const logger = require('./util/logger')('manager')
 
 function getChangeId(lines:string[], start:number, end:number):string|null {
@@ -32,7 +27,6 @@ export default class Manager {
   public activted:boolean
   public bufnr:number
   private changeId:string
-  private changing:boolean
   private chars:Chars
   private origLines:string[]
   private lines:Line[]
@@ -46,8 +40,6 @@ export default class Manager {
     this.activted = false
     this.nvim = nvim
     this.srcId = 9527
-    this.changing = false
-
     const delay = 100
     let callback = debounce((line, content) => {
       this.onLineChange(line, content).catch(e => {
@@ -71,7 +63,7 @@ export default class Manager {
           || lastline - firstline != 1
           || linedata.length != 1) {
           callback.clear()
-          echoWarning(nvim, 'Unexpected line change detected').catch(() => {}) // tslint:disable-line
+          echoMessage(nvim, 'Canceled').catch(() => {}) // tslint:disable-line
           this.stop().catch(err => {
             logger.error(err.stack)
           })
@@ -83,15 +75,17 @@ export default class Manager {
   }
 
   public async onLineChange(line:Line, content:string):Promise<void> {
-    let {lines, chars, srcId, startLnum, nvim, endLnum, activted, buffer} = this
+    let {chars, srcId, startLnum, nvim, endLnum, activted, buffer} = this
     if (!activted) return
     let [_, lnum, col] = await nvim.call('getcurpos', [])
+    // other line, not care
+    if (line.lnum != lnum) return
     let mode = await nvim.call('mode', [])
     let currWord = this.getWordAhead(content, mode == 'i' ? col - 1 : col)
     let af = chars.splitString(line.content)
     let at = chars.splitString(content)
     let [replacedWord, newWord] = diffString(af, at)
-    if (replacedWord != line.word || lnum != line.lnum) {
+    if (replacedWord != line.word) {
       await echoWarning(nvim, 'Other word get changed')
       await this.stop()
       return
@@ -111,7 +105,6 @@ export default class Manager {
       }))
     }
 
-    this.changing = true
     this.changeId = getChangeId(newLines, startLnum - 1, endLnum)
     try {
       await buffer.setLines(newLines, {
@@ -120,7 +113,6 @@ export default class Manager {
         strictIndexing: true
       })
     } catch (e) {
-      this.changing = false
       // user typing
       if (/Vim:E523/.test(e.message)) {
         return
@@ -136,7 +128,6 @@ export default class Manager {
     await Promise.all(hls.map(o => {
       return this.addHighlight(o.lnum, o.range)
     }))
-    this.changing = false
   }
 
   private async addHighlight(lnum:number, range:Range):Promise<void> {
@@ -183,7 +174,6 @@ export default class Manager {
     this.origLines = contents.slice(this.startLnum - 1, this.endLnum - 1)
     // TODO the API could change
     await buffer.request('nvim_buf_attach', [buffer, false, {}])
-    // await this.nvim.call('clearmatches', [])
     if (currentOnly) {
       if (range) {
         await this.addHighlight(lnum, range)
@@ -192,9 +182,8 @@ export default class Manager {
       await this.selectAll()
       if (range) await this.echoMessage(range)
     }
-    await nvim.call('rename#setup_autocmd')
+    await nvim.call('rename#start')
     this.activted = true
-    await this.nvim.command('let g:rename_activted = 1')
   }
 
   public async stop():Promise<void> {
@@ -204,10 +193,9 @@ export default class Manager {
     this.buffer = this.origLines = this.lines = this.chars = null
     await buffer.clearHighlight({srcId})
     this.lines = []
-    this.activted = false
+    await this.nvim.call('rename#shutdown')
     // TODO API could change
     await buffer.request('nvim_buf_detach', [buffer])
-    await this.nvim.command('let g:rename_activted = 0')
   }
 
   public checkPosition(lnum:number, col:number):boolean {
@@ -219,7 +207,6 @@ export default class Manager {
   }
 
   public async selectAll():Promise<void> {
-    let {srcId, buffer} = this
     for (let line of this.lines) {
       let {ranges, lnum} = line
       for (let r of ranges) {
@@ -230,7 +217,7 @@ export default class Manager {
 
   // goto next
   public async nextItem():Promise<void> {
-    let {endLnum, lines, nvim} = this
+    let {lines} = this
     let [_, lnum, col] = await this.nvim.call('getcurpos')
     let r = null
     for (let i = 0, l = lines.length; i < l; i++) {
@@ -256,7 +243,7 @@ export default class Manager {
 
   // goto prev
   public async prevItem():Promise<void> {
-    let {endLnum, lines, nvim} = this
+    let {lines} = this
     let [_, lnum, col] = await this.nvim.call('getcurpos')
     let r = null
     for (let i = lines.length - 1; i >= 0; i--) {
@@ -282,7 +269,7 @@ export default class Manager {
 
   // goto first active item
   public async navigateFirst(isRedirect?:boolean):Promise<void> {
-    let {nvim, lines} = this
+    let {lines} = this
     let pos = await this.nvim.call('getcurpos')
     for (let line of lines) {
       let r = line.firstActive
@@ -300,7 +287,7 @@ export default class Manager {
 
   // goto last active item
   public async navigateLast(isRedirect?:boolean):Promise<void> {
-    let {nvim, lines} = this
+    let {lines} = this
     let pos = await this.nvim.call('getcurpos')
     for (let i = lines.length - 1; i >= 0; i--) {
       let line = lines[i]

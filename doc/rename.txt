@@ -1,6 +1,6 @@
 *rename.txt*				Variable rename plugin for neovim.
 
-Version: 0.2
+Version: 0.3
 Author: Qiming Zhao <chemzqm at gmail.com>
 License: MIT license
 
@@ -36,8 +36,6 @@ INTRODUCTION					*rename-introduction*
 *rename.nvim* is a node plugin of neovim that makes rename variable easy.
 
 It make use of |buffer-updates| of neovim to make it really fast.
-
-It (should) works well with file that smaller than 30,000 lines of code.
 
 It doesn't use any of 'Cursor' or 'TextChange' event of vim.
 
@@ -77,11 +75,13 @@ in neovim and restart neovim to make remote plugin works.
 ==============================================================================
 USAGE						*rename-usage*
 
-1. Press <C-a> in normal mode active rename.
+1. Press <C-a> or <C-d> in normal mode active rename.
 2. Optional use |n| |N| |o| |O| to actived words.
 3. Optional use <C-d> to toggle word activation.
 4. Change the word (all modes of vim are supported).
 5. Press <esc> or save/leave buffer or insert none keyword to exit.
+
+For project wide replace check out |:RenameSearch|
 
 ==============================================================================
 INTERFACE					*rename-interface*
@@ -171,6 +171,17 @@ g:rename_spinner_type 				*g:rename_spinner_type*
 ==============================================================================
 FUNCTIONS 					*rename-functions*
 
+RenameSearchAction({name}, {arg}) 		*RenameSearchAction*
+			Do action for rename search buffer.
+			Action could be 'open' or 'move'.
+
+			When action is 'open', arg is the command for open the
+			buffer, for example `tabe` `split`.
+
+			When action is 'move', arg could be 'prev' and 'next'
+			for move to previous match and next match.
+			
+
 						*health#rename#check()*
 health#rename#check()
 	    Run health check.
@@ -188,18 +199,22 @@ https://github.com/BurntSushi/ripgrep#installation for installation.
 	 					*rename-search-commands*
 
 :RenameSearch {args}  				*:RenameSearch*
-		Start async searching with |rename-search-args|, ex: >
-		
+		Start async searching with |rename-search-args|, ex: 
+>
 		" search for fixed string
 		:RenameSearch foo.bar
 
 		" search with regex
 		:RenameSearch -e r\w+me
+>
+< 		Use |rename-search-replace| for replace current word project
+		wide.
 
-:RenameSearchStop[!] 				*:RenameSearchStop*
-		Stop search process in current buffer, use `!` to send
-		`SIGKILL`
-	
+:RenameSearchStop[!]  				*:RenameSearchStop*
+
+		Stop search process by send "SIGHUP", when '!' is used, send
+		"SIGKILL" instead.
+
 ------------------------------------------------------------------------------
 						*rename-search-args*
 
@@ -270,23 +285,34 @@ Note: <tab> could be used for full name args completion.
 ------------------------------------------------------------------------------
 						*rename-search-keymap*
 
-Keymaps have provided for easier work with search buffer:
+Default keymaps for search buffer:
 
 	<C-c> 		Stop search process.
 	<q> 		Exit and delete search buffer.
 	<CR> 		Open file under cursor in current buffer.
-	<s> 		Open file under cursor in split buffer.
-	<t> 		Open file under cursor in new tab.
-	<p>		Open file under cursor in preivew window.
 	<C-n>		Goto next match.
 	<C-p>		Goto previous match.
+
+You can create your own keymap by using |RenameSearchStart| autocmd.
+
+
+						*rename-search-replace*
+Keymap for repalce current word project wide:
+
+	<Plug>(rename-search-replace)
+
+For example, you can add: >
+
+	nmap <leader>sr <Plug>(rename-search-replace)
+>
+in your init.vim.
 
 ==============================================================================
 FAQ						*rename-faq*
 
-Q: How could I stop the RenameSearch process?
+Q: How could I force the RenameSearch process stop?
 
-A: Press <C-c> in RenameSearch buffer or use command |RenameSearchStop|.
+A: You can use command ":RenameSearchStop!" to send 'SIGKILL'.
 
 ------------------------------------------------------------------------------
 
@@ -296,11 +322,19 @@ A: `let g:rename_search_vcs_root = 0`
 
 ------------------------------------------------------------------------------
 
-Q: How could I change setting of RenameSearch buffer?
+Q: How could I configure RenameSearch buffer?
 
 A: You can use autocmd 'RenameSearchStart' like: >
 
-	autocmd User RenameSearchStart :setl nowrap | setl nonu | setl nornu
+	autocmd User RenameSearchStart :call s:SetupRename()
+
+	function s:SetupRename()
+	  setl nowrap | setl nonu | setl nornu
+	  nnoremap <buffer> s :call RenameSearchAction('open', 'split')<CR>
+  	  nnoremap <buffer> t :call RenameSearchAction('open', 'tabe')<CR>
+  	  nnoremap <buffer> p :call RenameSearchAction('open', 'pedit')<CR>
+	endfunction
+
 
 ==============================================================================
 CHANGELOG					*rename-changelog*
@@ -312,6 +346,10 @@ May 30, 2018 - 0.1
 Jun 01, 2018 - 0.2
 
 	Support project search.
+
+Jun 04, 2018 - 0.3
+
+	Support change file on save.
 
 ==============================================================================
 vim:tw=78:nosta:ts=8:sts=0:ft=help:noet:fen:fdm=marker:

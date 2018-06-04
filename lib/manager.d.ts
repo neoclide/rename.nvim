@@ -5,7 +5,6 @@ export default class Manager {
     activted: boolean;
     bufnr: number;
     private changeId;
-    private changing;
     private chars;
     private origLines;
     private lines;

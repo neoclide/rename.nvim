@@ -16,9 +16,10 @@ export default class RenamePlugin {
     renameSearch(args: any[]): Promise<void>;
     renameSearchCompleteFunc(args: [string, string, number]): Promise<string[]>;
     renameBufferUnload(args: [number]): Promise<void>;
+    renameSearchWrite(args: [number]): Promise<void>;
     renameSearchAction(args: any[]): Promise<void>;
     private stopSearch(force);
     private getSearch();
-    private openFile(openType);
+    private openFile(cmd);
     private onMove(moveType);
 }

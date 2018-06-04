@@ -1,11 +1,9 @@
-import {Neovim, Buffer} from 'neovim'
 import {ArrayIterator} from '../util/iterator'
 import {
   byteLength,
   byteIndex} from '../util/string'
 import {
   Range,
-  Cols
 } from '../types'
 const logger = require('../util/logger')('model-line')
 
@@ -30,7 +28,7 @@ export default class Line {
    * @returns {void}
    */
   public setNewWord(word:string):void {
-    let {content, ranges, lnum} = this
+    let {content, ranges} = this
     ranges = ranges.filter(r => r.active)
     if (!ranges.length) return
     let origLen = ranges[0].len

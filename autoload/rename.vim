@@ -1,16 +1,20 @@
-function! rename#setup_autocmd()
+function! rename#start()
   let actived = get(b:, 'rename_actived', 0)
   if actived | return | endif
   augroup rename_nvim
     autocmd!
-    autocmd BufLeave,BufWritePost,BufUnload <buffer> :call RenameCancel(expand('<abuf>'))
+    autocmd BufLeave,BufWritePre,BufUnload <buffer> :call RenameCancel(expand('<abuf>'))
     autocmd InsertCharPre <buffer> :call s:OnCharInsert(v:char)
   augroup end
   let b:rename_actived = 1
 endfunction
 
+function! rename#shutdown()
+  let b:rename_actived = 0
+endfunction
+
 function! s:OnCharInsert(char)
-  if !get(g:, 'rename_activted', 0)
+  if !get(b:, 'rename_actived', 0)
     return
   endif
   call RenameCharInsert(a:char)
@@ -60,17 +64,28 @@ function! rename#get_fullpath() abort
   return resolve(fnamemodify(fname, ':p'))
 endfunction
 
-
 function! rename#get_filepath()
   let lnum = line('.')
   let filepath = ''
   while lnum > 0
     let lnum = lnum - 1
-    let synName = synIDattr(synID(lnum,1,1),"name")
-    if synName ==# 'renameSearchFilename'
-      let filepath = substitute(getline(lnum), ':$', '', '')
+    let synName = synIDattr(synID(lnum,2,1),"name")
+    if synName ==# 'renameSearchFilePath'
+      let filepath = substitute(getline(lnum)[1:], ':.\+$', '', '')
       break
     endif
   endw
   return filepath
+endfunction
+
+function! rename#prompt_change(count)
+  echohl MoreMsg
+  echom a:count.' files will be saved. Confirm? (y/n)'
+  echohl None
+  let confirm = nr2char(getchar()) | redraw!
+  if !(confirm ==? "y" || confirm ==? "\r")
+    echohl Moremsg | echo 'Cancelled.' | echohl None
+    return 0
+  end
+  return 1
 endfunction

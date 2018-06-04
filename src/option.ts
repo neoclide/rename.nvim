@@ -28,7 +28,6 @@ function getOption(opt:string, command:string):string {
 export const optionList = options.map(o => o[1])
 
 export function convertOptions(list:string[], command:string):string[][] {
-  let useRegex = list.find(o => o == '-e' || o == '-regex') != null
   let useLiteral = list.find(o => {
     return ['-e', '-regex', '-w', '-word', '-l', '-literal'].indexOf(o) != -1
   }) == null
